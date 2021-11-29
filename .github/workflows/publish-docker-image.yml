@@ -11,14 +11,17 @@ jobs:
     - uses: actions/checkout@v2
     - uses: olegtarasov/get-tag@v2.1
       id: get-tag
+    - name: Lowercase repository owner for Docker Hub user
+      run: |
+        echo "DH_USER=${GITHUB_REPOSITORY%/*}" | tr '[:upper:]' '[:lower:]' >>${GITHUB_ENV}
     - name: Build image
-      run: docker build . -t epicwink/proxpi:${{ steps.get-tag.outputs.tag }}
+      run: docker build . -t ${DH_USER}/proxpi:${{ steps.get-tag.outputs.tag }}
     - name: Login to DockerHub
       run: >
         echo ${{ secrets.DOCKERHUB_PASSWORD }}
-        | docker login --password-stdin -u epicwink
+        | docker login --password-stdin -u ${DH_USER}
     - name: Publish image
-      run: docker push epicwink/proxpi:${{ steps.get-tag.outputs.tag }}
+      run: docker push ${DH_USER}/proxpi:${{ steps.get-tag.outputs.tag }}
     - name: Check tag
       id: check-tag
       run: |
@@ -28,5 +31,5 @@ jobs:
     - name: Publish latest image
       if: steps.check-tag.outputs.match == 'true'
       run: |
-        docker tag epicwink/proxpi:${{ steps.get-tag.outputs.tag }} epicwink/proxpi:latest
-        docker push epicwink/proxpi:latest
+        docker tag ${DH_USER}/proxpi:${{ steps.get-tag.outputs.tag }} ${DH_USER}/proxpi:latest
+        docker push ${DH_USER}/proxpi:latest
