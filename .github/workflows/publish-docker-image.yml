@@ -16,7 +16,9 @@ jobs:
       id: get-tag
     - name: Lowercase repository owner for Docker Hub user
       run: |
-        echo "DH_USER=${GITHUB_REPOSITORY%/*}" | tr '[:upper:]' '[:lower:]' >>${GITHUB_ENV}
+        DH_USER=$(echo "${GITHUB_REPOSITORY%/*}" | tr '[:upper:]' '[:lower:]')
+        echo "DH_USER=${DH_USER}"
+        echo "DH_USER=${DH_USER}" >>${GITHUB_ENV}
     - name: Build image
       run: docker build . -t ${DH_USER}/proxpi:${{ steps.get-tag.outputs.tag }}
     - name: Login to DockerHub
