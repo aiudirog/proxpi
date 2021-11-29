@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: olegtarasov/get-tag@v1
+    - uses: olegtarasov/get-tag@v2.1
       id: get-tag
     - name: Build image
       run: docker build . -t epicwink/proxpi:${{ steps.get-tag.outputs.tag }}
