@@ -287,6 +287,17 @@ def _mask_password(url: str) -> str:
     return urllib.parse.urlunsplit(parsed)
 
 
+from requests.adapters import HTTPAdapter, Retry
+
+RETRIES = Retry(total=5, backoff_factor=1, status_forcelist=[502, 503, 504])
+
+
+def _get_session():
+    session = requests.Session()
+    session.mount('http', HTTPAdapter(max_retries=RETRIES))
+    return session
+
+
 class _IndexCache:
     """Cache for an index.
 
@@ -312,13 +323,17 @@ class _IndexCache:
     def __init__(self, index_url: str, ttl: int, session: requests.Session = None):
         self.index_url = index_url
         self.ttl = ttl
-        self.session = session or requests.Session()
+        # self.session = session or requests.Session()
         self._index_t = None
         self._index_lock = threading.Lock()
         self._package_locks = _Locks()
         self._index = {}
         self._packages = {}
         self._index_url_masked = _mask_password(index_url)
+
+    @property
+    def session(self):
+        return _get_session()
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self._index_url_masked!r}, {self.ttl!r})"
@@ -567,12 +582,16 @@ class _FileCache:
 
         self.max_size = max_size
         self.cache_dir = os.path.abspath(cache_dir or tempfile.mkdtemp())
-        self.session = session or requests.Session()
+        # self.session = session or requests.Session()
         self._cache_dir_provided = cache_dir
         self._files = {}
         self._evict_lock = threading.Lock()
 
         self._populate_files_from_existing_cache_dir()
+
+    @property
+    def session(self):
+        return _get_session()
 
     def __repr__(self):
         return (
