@@ -409,6 +409,13 @@ def readonly_package_dir(tmp_path):
         yield package_dir
 
 
+@pytest.fixture
+def package_dir(tmp_path):
+    package_dir = tmp_path / "packages"
+    package_dir.mkdir()
+    yield package_dir
+
+
 def test_download_file_failed(mock_root_index, server, readonly_package_dir):
     """Test getting package file when caching failed."""
     cache_patch = mock.patch.object(proxpi_server.cache.file_cache, "_files", {})
@@ -447,3 +454,22 @@ def test_download_file_representation(server, tmp_path, file_mime_type):
         assert response.headers["Content-Type"] == "application/x-tar"
         assert response.headers["Content-Encoding"] == "gzip"
     response.close()
+
+
+def test_cached_file_deleted(mock_root_index, server, package_dir):
+    """Test getting a cached package file that was deleted from the cache."""
+    dir_patch = mock.patch.object(
+        proxpi_server.cache.file_cache, "cache_dir", str(package_dir)
+    )
+    dl_timeout = mock.patch.object(  # Just make sure there's plenty of time
+        proxpi_server.cache.file_cache, "download_timeout", 30.0,
+    )
+    url = f"{server}/index/numpy/numpy-1.23.1-cp310-cp310-macosx_10_9_x86_64.whl"
+    with dir_patch, dl_timeout:
+        response = requests.get(url, allow_redirects=False)
+        assert response.status_code == 200
+        for whl in package_dir.rglob('*.whl'):
+            whl.unlink()
+        # Before this would raise 500 on each call
+        response = requests.get(url, allow_redirects=False)
+        assert response.status_code == 200

@@ -203,9 +203,23 @@ def get_file(package_name: str, file_name: str):
     except _cache.NotFound:
         flask.abort(404)
         raise
+
+    try:
+        return _redirect_or_send_file(path)
+    except FileNotFoundError:
+        # Something has gone wrong and a url is tracked as cached in
+        # memory but doesn't actually exist on disk -> force re-caching
+        url = cache.get_url(package_name, file_name)
+        cache.file_cache.invalidate(url)
+        path = cache.file_cache.get(url)
+        return _redirect_or_send_file(path)
+
+
+def _redirect_or_send_file(path: str):
     scheme = urllib.parse.urlparse(path).scheme
     if scheme and scheme != "file":
         return flask.redirect(path)
+
     return flask.send_file(path, mimetype=_file_mime_type)
 
 

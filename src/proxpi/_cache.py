@@ -805,6 +805,14 @@ class _FileCache:
                 path = self.get(url)
         return path
 
+    def invalidate(self, url: str) -> None:
+        """Remove any tracking of the given url.
+
+        Args:
+            url: original file URL
+        """
+        self._files.pop(self._get_key(url), None)
+
 
 @dataclasses.dataclass
 class Cache:
@@ -919,6 +927,34 @@ class Cache:
             raise exc
         return files
 
+    def get_url(self, package_name: str, file_name: str) -> str:
+        """Get the remote url of a file.
+
+        Args:
+            package_name: project of file to get
+            file_name: name of file to get
+
+        Returns:
+            original file URL
+
+        Raises:
+            NotFound: if project doesn't exist in any index or file doesn't
+                exist in project
+        """
+        try:
+            url = self.root_cache.get_file_url(package_name, file_name)
+        except NotFound as e:
+            url = e
+        if isinstance(url, Exception):
+            for cache in self.extra_caches:
+                try:
+                    url = cache.get_file_url(package_name, file_name)
+                except NotFound:
+                    pass
+            if isinstance(url, Exception):
+                raise url
+        return url
+
     def get_file(self, package_name: str, file_name: str) -> str:
         """Get a file.
 
@@ -933,20 +969,7 @@ class Cache:
             NotFound: if project doesn't exist in any index or file doesn't
                 exist in project
         """
-
-        try:
-            url = self.root_cache.get_file_url(package_name, file_name)
-        except NotFound as e:
-            url = e
-        if isinstance(url, Exception):
-            for cache in self.extra_caches:
-                try:
-                    url = cache.get_file_url(package_name, file_name)
-                except NotFound:
-                    pass
-            if isinstance(url, Exception):
-                raise url
-        return self.file_cache.get(url)
+        return self.file_cache.get(self.get_url(package_name, file_name))
 
     def invalidate_list(self):
         """Invalidate project list cache."""
@@ -983,6 +1006,19 @@ class Cache:
         for cache in self.extra_caches:
             cache.invalidate_project(name)
 
+    def invalidate_file(self, package_name: str, file_name: str) -> None:
+        """Invalidate a cached file.
+
+        Args:
+            package_name: project of file to get
+            file_name: name of file to get
+
+        Raises:
+            NotFound: if project doesn't exist in any index or file doesn't
+                exist in project
+        """
+        url = self.get_url(package_name, file_name)
+        self.file_cache.invalidate(url)
 
 @functools.lru_cache(maxsize=None)
 def get_proxpi_version() -> t.Union[str, None]:
